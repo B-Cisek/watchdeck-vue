@@ -1,76 +1,82 @@
 <script setup lang="ts">
-import { ref, shallowRef } from 'vue'
-import { sub } from 'date-fns'
-import type { DropdownMenuItem } from '@nuxt/ui'
-import { useDashboard } from '../composables/useDashboard'
-import type { Period, Range } from '../types'
+import { computed } from 'vue'
+import { useNow } from '@vueuse/core'
+import { useMonitoring } from '@/composables/useMonitoring'
+import { overview } from '@/utils/overview'
 
-const { isNotificationsSlideoverOpen } = useDashboard()
+const { services, checks, status, load } = useMonitoring()
 
-const items = [
-  [
-    {
-      label: 'New mail',
-      icon: 'i-lucide-send',
-      to: '/inbox',
-    },
-    {
-      label: 'New customer',
-      icon: 'i-lucide-user-plus',
-      to: '/customers',
-    },
-  ],
-] satisfies DropdownMenuItem[][]
-
-const range = shallowRef<Range>({
-  start: sub(new Date(), { days: 14 }),
-  end: new Date(),
-})
-const period = ref<Period>('daily')
+// Results also become outdated while nothing new arrives.
+const now = useNow({ interval: 10_000 })
+const current = computed(() => overview(services.value, checks.value, now.value.getTime()))
 </script>
 
 <template>
   <UDashboardPanel id="home">
     <template #header>
-      <UDashboardNavbar title="Home" :ui="{ right: 'gap-3' }">
+      <UDashboardNavbar title="Home">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
-
-        <template #right>
-          <UTooltip text="Notifications" :kbds="['n']">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              square
-              @click="isNotificationsSlideoverOpen = true"
-            >
-              <UChip color="error" inset>
-                <UIcon name="i-lucide-bell" class="size-5 shrink-0" />
-              </UChip>
-            </UButton>
-          </UTooltip>
-
-          <UDropdownMenu :items="items">
-            <UButton icon="i-lucide-plus" size="md" class="rounded-full" />
-          </UDropdownMenu>
-        </template>
       </UDashboardNavbar>
-
-      <UDashboardToolbar>
-        <template #left>
-          <!-- NOTE: The `-ms-1` class is used to align with the `DashboardSidebarCollapse` button here. -->
-          <HomeDateRangePicker v-model="range" class="-ms-1" />
-
-          <HomePeriodSelect v-model="period" :range="range" />
-        </template>
-      </UDashboardToolbar>
     </template>
 
     <template #body>
-      <HomeStats :period="period" :range="range" />
-      <HomeChart :period="period" :range="range" />
-      <HomeSales :period="period" :range="range" />
+      <div
+        v-if="status === 'loading'"
+        class="space-y-6"
+        role="status"
+        aria-label="Loading overview"
+      >
+        <USkeleton class="h-14" />
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <USkeleton v-for="i in 4" :key="i" class="h-24" />
+        </div>
+        <USkeleton class="h-40" />
+      </div>
+
+      <UEmpty
+        v-else-if="status === 'error'"
+        role="alert"
+        variant="naked"
+        icon="i-lucide-circle-alert"
+        title="Could not load the overview"
+        description="Check your connection and try again."
+        :actions="[
+          { label: 'Retry', icon: 'i-lucide-refresh-cw', color: 'neutral', onClick: load },
+        ]"
+      />
+
+      <UEmpty
+        v-else-if="!services.length"
+        variant="naked"
+        icon="i-lucide-server"
+        title="No services yet"
+        description="Add the first service you want to monitor to see its status here."
+        :actions="[{ label: 'Go to services', icon: 'i-lucide-server', to: '/services' }]"
+      />
+
+      <template v-else>
+        <HomeSummary :overview="current" />
+
+        <section
+          v-if="current.problems.length"
+          aria-labelledby="home-problems"
+          class="shrink-0 space-y-3"
+        >
+          <h2 id="home-problems" class="font-semibold text-highlighted">Needs attention</h2>
+          <HomeProblems :problems="current.problems" />
+        </section>
+
+        <section aria-labelledby="home-services" class="shrink-0 space-y-3">
+          <h2 id="home-services" class="font-semibold text-highlighted">Services</h2>
+          <ul class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <li v-for="item in current.services" :key="item.service.id" class="min-w-0">
+              <HomeServiceCard :item="item" />
+            </li>
+          </ul>
+        </section>
+      </template>
     </template>
   </UDashboardPanel>
 </template>

@@ -98,11 +98,11 @@ function errorMessage(e: unknown): string {
       :submit="{ label: 'Sign in' }"
       :loading="loading"
       title="Welcome back"
-      description="Enter your credentials to access Watchdeck."
+      description="Enter your credentials to access WatchDeck."
       @submit="onSubmit"
     >
       <template #leading>
-        <img src="/logo.svg" alt="Watchdeck" class="mx-auto size-10" />
+        <img src="/logo.svg" alt="WatchDeck" class="mx-auto size-10" />
       </template>
 
       <template v-if="error" #validation>

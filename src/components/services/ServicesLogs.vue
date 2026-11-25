@@ -1,0 +1,77 @@
+<script setup lang="ts">
+import { computed, reactive, useTemplateRef, watch } from 'vue'
+import { format } from 'date-fns'
+import type { LogLine } from '@/types/log'
+import { filterLogs, type LogFilter } from '@/utils/logs'
+
+const props = defineProps<{ lines: LogLine[] }>()
+
+const streamItems = [
+  { label: 'All streams', value: 'all' },
+  { label: 'stdout', value: 'stdout' },
+  { label: 'stderr', value: 'stderr' },
+]
+
+const filter = reactive<LogFilter>({ query: '', stream: 'all' })
+const visibleLines = computed(() => filterLogs(props.lines, filter))
+
+// The newest lines are at the bottom, like in a terminal.
+const list = useTemplateRef('list')
+watch(
+  [list, visibleLines],
+  ([element]) => {
+    if (element) {
+      element.scrollTop = element.scrollHeight
+    }
+  },
+  { flush: 'post' },
+)
+</script>
+
+<template>
+  <div class="space-y-3">
+    <div class="flex flex-wrap gap-2">
+      <UInput
+        v-model="filter.query"
+        icon="i-lucide-search"
+        placeholder="Search logs…"
+        aria-label="Search logs"
+        class="w-full sm:max-w-72"
+      />
+      <USelect
+        v-model="filter.stream"
+        :items="streamItems"
+        aria-label="Stream"
+        class="w-full sm:w-36"
+      />
+    </div>
+
+    <div
+      ref="list"
+      role="region"
+      aria-label="Log lines"
+      tabindex="0"
+      class="h-96 overflow-y-auto rounded-lg bg-elevated/50 p-3 font-mono text-xs ring ring-default focus-visible:outline-2 focus-visible:outline-primary"
+    >
+      <p v-if="!visibleLines.length" class="text-muted">
+        {{ lines.length ? 'No lines match the filters.' : 'No logs yet.' }}
+      </p>
+      <div
+        v-for="line in visibleLines"
+        :key="line.id"
+        class="flex flex-wrap gap-x-3 py-0.5 sm:flex-nowrap"
+      >
+        <time :datetime="line.loggedAt" class="shrink-0 text-muted">
+          {{ format(line.loggedAt, 'MMM d HH:mm:ss') }}
+        </time>
+        <span class="w-16 shrink-0 truncate text-muted" :title="line.container">
+          {{ line.container }}
+        </span>
+        <span class="w-12 shrink-0" :class="line.stream === 'stderr' ? 'text-error' : 'text-muted'">
+          {{ line.stream }}
+        </span>
+        <span class="min-w-0 wrap-anywhere text-default">{{ line.message }}</span>
+      </div>
+    </div>
+  </div>
+</template>
