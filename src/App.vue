@@ -1,11 +1,20 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useHead } from '@unhead/vue'
+import { useColorMode } from '@vueuse/core'
+
+const colorMode = useColorMode()
+const themeColor = computed(() => (colorMode.value === 'dark' ? '#18181b' : '#ffffff'))
+
+useHead({
+  meta: [{ name: 'theme-color', content: themeColor }],
+})
+</script>
 
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <Suspense>
+    <UApp>
+      <RouterView />
+    </UApp>
+  </Suspense>
 </template>
-
-<style scoped></style>
