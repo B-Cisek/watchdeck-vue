@@ -26,6 +26,12 @@ export default defineConfig({
       },
     }),
   ],
+  server: {
+    // Same origin for the app and the API, so session cookies work without CORS.
+    proxy: {
+      '/api': 'http://localhost:8000',
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

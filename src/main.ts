@@ -7,10 +7,16 @@ import ui from '@nuxt/ui/vue-plugin'
 
 import App from './App.vue'
 import router from './router'
+import { createUnauthorizedHandler } from './router/guard'
+import { useAuthStore } from './stores/auth'
+import { setUnauthorizedHandler } from './utils/api'
 
 const app = createApp(App)
 
 app.use(createPinia())
+setUnauthorizedHandler(
+  createUnauthorizedHandler(useAuthStore(), router.push, () => router.currentRoute.value),
+)
 app.use(createHead())
 app.use(router)
 app.use(ui)

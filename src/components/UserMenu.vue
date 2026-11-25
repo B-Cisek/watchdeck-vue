@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useColorMode } from '@vueuse/core'
+import { useAuthStore } from '@/stores/auth'
 
 defineProps<{
   collapsed?: boolean
@@ -31,13 +33,29 @@ const colors = [
 ]
 const neutrals = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'taupe', 'mauve', 'mist', 'olive']
 
-const user = ref({
-  name: 'Benjamin Canac',
-  avatar: {
-    src: 'https://github.com/benjamincanac.png',
-    alt: 'Benjamin Canac',
-  },
+const auth = useAuthStore()
+const router = useRouter()
+const toast = useToast()
+
+const user = computed(() => {
+  const email = auth.user?.email ?? ''
+  return { name: email, avatar: { alt: email } }
 })
+
+async function logout() {
+  try {
+    await auth.logout()
+  } catch {
+    toast.add({
+      title: 'Could not log out',
+      description: 'You are still signed in. Please try again.',
+      icon: 'i-lucide-circle-alert',
+      color: 'error',
+    })
+    return
+  }
+  await router.push('/login')
+}
 
 const items = computed<DropdownMenuItem[][]>(() => [
   [
@@ -188,6 +206,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
     {
       label: 'Log out',
       icon: 'i-lucide-log-out',
+      onSelect: logout,
     },
   ],
 ])
