@@ -1,3 +1,4 @@
+import * as z from 'zod'
 import type { LogLine, LogStream } from '@/types/log'
 
 export interface LogFilter {
@@ -15,3 +16,18 @@ export function filterLogs(lines: LogLine[], { query, stream }: LogFilter): LogL
         line.container.toLowerCase().includes(search)),
   )
 }
+
+/** Same rules as the API: Docker's own rule for container names. */
+export const logSourceSchema = z.object({
+  containerName: z
+    .string()
+    .trim()
+    .min(1, 'Container name is required')
+    .max(255, 'Use 255 characters or fewer')
+    .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/, 'Use the name docker ps shows: letters, digits, _ . -'),
+  host: z
+    .string()
+    .trim()
+    .max(100, 'Use 100 characters or fewer')
+    .transform((host) => host || null),
+})

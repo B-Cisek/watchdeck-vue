@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMonitoring } from '@/composables/useMonitoring'
-import { sampleLogs } from '@/mocks/logs'
+import { useServiceLogs } from '@/composables/useServiceLogs'
 import type { Check } from '@/types/check'
 import type { Service } from '@/types/service'
 import { checksByService, serviceStatus } from '@/utils/checks'
@@ -14,7 +14,14 @@ const { services, checks, status, load } = useMonitoring()
 const checkModalOpen = ref(false)
 const renameModalOpen = ref(false)
 const deleteModalOpen = ref(false)
-const logLines = sampleLogs()
+const logsModalOpen = ref(false)
+const {
+  sources: logSources,
+  lines: logLines,
+  status: logStatus,
+  load: loadLogs,
+  addSource: onLogSourceCreated,
+} = useServiceLogs(() => route.params.id)
 
 const service = computed(() => services.value.find(({ id }) => id === route.params.id))
 const serviceChecks = computed(() => checksByService(checks.value).get(route.params.id) ?? [])
@@ -148,9 +155,72 @@ function onCheckCreated(check: Check) {
         <section aria-labelledby="service-logs" class="space-y-3">
           <div class="flex items-center gap-2">
             <h2 id="service-logs" class="font-semibold text-highlighted">Logs</h2>
-            <UBadge label="Sample data" color="warning" variant="subtle" size="sm" />
+            <UBadge
+              v-if="logStatus === 'ready'"
+              :label="logSources.length"
+              color="neutral"
+              variant="subtle"
+              size="sm"
+            />
+            <UButton
+              v-if="logStatus === 'ready' && logSources.length"
+              label="Add logs"
+              icon="i-lucide-plus"
+              color="neutral"
+              variant="subtle"
+              size="sm"
+              class="ms-auto"
+              @click="logsModalOpen = true"
+            />
           </div>
-          <ServicesLogs :lines="logLines" />
+
+          <USkeleton
+            v-if="logStatus === 'loading'"
+            class="h-96"
+            role="status"
+            aria-label="Loading logs"
+          />
+
+          <UAlert
+            v-else-if="logStatus === 'error'"
+            role="alert"
+            color="error"
+            variant="subtle"
+            icon="i-lucide-circle-alert"
+            title="Could not load the logs"
+            :actions="[
+              {
+                label: 'Retry',
+                icon: 'i-lucide-refresh-cw',
+                color: 'neutral',
+                variant: 'outline',
+                onClick: loadLogs,
+              },
+            ]"
+          />
+
+          <UEmpty
+            v-else-if="!logSources.length"
+            icon="i-lucide-scroll-text"
+            title="No logs yet"
+            description="Add a Docker container to see its logs here instead of over SSH."
+            :actions="[
+              {
+                label: 'Add logs',
+                icon: 'i-lucide-plus',
+                onClick: () => {
+                  logsModalOpen = true
+                },
+              },
+            ]"
+          />
+
+          <template v-else>
+            <ul class="flex flex-wrap gap-2" aria-label="Containers">
+              <ServicesLogSource v-for="source in logSources" :key="source.id" :source="source" />
+            </ul>
+            <ServicesLogs :lines="logLines" />
+          </template>
         </section>
       </template>
 
@@ -158,6 +228,11 @@ function onCheckCreated(check: Check) {
         v-model:open="checkModalOpen"
         :service="service"
         @created="onCheckCreated"
+      />
+      <ServicesAddLogsModal
+        v-model:open="logsModalOpen"
+        :service="service"
+        @created="onLogSourceCreated"
       />
       <ServicesRenameModal
         v-model:open="renameModalOpen"

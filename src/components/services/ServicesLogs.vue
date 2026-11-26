@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, useTemplateRef, watch } from 'vue'
+import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import { format } from 'date-fns'
 import type { LogLine } from '@/types/log'
 import { filterLogs, type LogFilter } from '@/utils/logs'
@@ -15,12 +15,22 @@ const streamItems = [
 const filter = reactive<LogFilter>({ query: '', stream: 'all' })
 const visibleLines = computed(() => filterLogs(props.lines, filter))
 
-// The newest lines are at the bottom, like in a terminal.
+// The newest lines are at the bottom, like in a terminal. New lines keep the view at the
+// bottom, unless the reader scrolled up to read older ones.
 const list = useTemplateRef('list')
+const followsNewLines = ref(true)
+
+function onScroll() {
+  const element = list.value
+  if (element) {
+    followsNewLines.value = element.scrollHeight - element.scrollTop - element.clientHeight < 32
+  }
+}
+
 watch(
   [list, visibleLines],
   ([element]) => {
-    if (element) {
+    if (element && followsNewLines.value) {
       element.scrollTop = element.scrollHeight
     }
   },
@@ -51,10 +61,15 @@ watch(
       role="region"
       aria-label="Log lines"
       tabindex="0"
+      @scroll="onScroll"
       class="h-96 overflow-y-auto rounded-lg bg-elevated/50 p-3 font-mono text-xs ring ring-default focus-visible:outline-2 focus-visible:outline-primary"
     >
       <p v-if="!visibleLines.length" class="text-muted">
-        {{ lines.length ? 'No lines match the filters.' : 'No logs yet.' }}
+        {{
+          lines.length
+            ? 'No lines match the filters.'
+            : 'No lines yet. They show up a few seconds after the container writes them.'
+        }}
       </p>
       <div
         v-for="line in visibleLines"
@@ -64,7 +79,7 @@ watch(
         <time :datetime="line.loggedAt" class="shrink-0 text-muted">
           {{ format(line.loggedAt, 'MMM d HH:mm:ss') }}
         </time>
-        <span class="w-16 shrink-0 truncate text-muted" :title="line.container">
+        <span class="w-28 shrink-0 truncate text-muted" :title="line.container">
           {{ line.container }}
         </span>
         <span class="w-12 shrink-0" :class="line.stream === 'stderr' ? 'text-error' : 'text-muted'">

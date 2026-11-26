@@ -1,16 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 import type { LogLine } from '@/types/log'
-import { filterLogs } from '@/utils/logs'
+import { filterLogs, logSourceSchema } from '@/utils/logs'
 
 const started: LogLine = {
-  id: 'l1',
+  id: 1,
   container: 'shop-app',
   loggedAt: '2026-11-25T10:00:00Z',
   stream: 'stdout',
   message: 'Server started',
 }
 const failed: LogLine = {
-  id: 'l2',
+  id: 2,
   container: 'shop-db',
   loggedAt: '2026-11-25T10:00:01Z',
   stream: 'stderr',
@@ -37,5 +37,22 @@ describe('filterLogs', () => {
 
   test('applies both filters', () => {
     expect(filterLogs(lines, { query: 'started', stream: 'stderr' })).toEqual([])
+  })
+})
+
+describe('logSourceSchema', () => {
+  test('trims the values and turns a blank host into null', () => {
+    expect(logSourceSchema.parse({ containerName: ' shop-app-1 ', host: '  ' })).toEqual({
+      containerName: 'shop-app-1',
+      host: null,
+    })
+  })
+
+  test('keeps a host', () => {
+    expect(logSourceSchema.parse({ containerName: 'shop', host: 'vps-1' }).host).toBe('vps-1')
+  })
+
+  test.each(['', '-shop', 'shop app', 'shop"x'])('rejects container name %p', (containerName) => {
+    expect(logSourceSchema.safeParse({ containerName, host: '' }).success).toBe(false)
   })
 })
