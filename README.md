@@ -54,9 +54,10 @@ potem buduje obraz z `Dockerfile` (build Vite → statyczne pliki serwowane prze
 `ghcr.io/<owner>/watchdeck-vue:sha-<commit>` (oraz `:latest`), wgrywa `deploy/docker-compose.yml` na VPS
 i robi `docker compose pull && up -d --wait`. Ręcznie można go odpalić z zakładki Actions (`workflow_dispatch`).
 
-Frontend stoi na **tej samej domenie co backend** (`../watchdeck`), żeby cookie sesji działało bez CORS.
-Router Traefika frontendu łapie `Host(DOMAIN) && !PathPrefix(/api) && !Path(/health)`; `/api` i `/health`
-spadają na istniejący router backendu `Host(DOMAIN)`. Dłuższa reguła = wyższy priorytet, więc backend bez zmian.
+Frontend (np. `watchdeck.example.com`) i backend (`../watchdeck`, własna domena API) stoją na różnych domenach,
+ale przeglądarka rozmawia tylko z domeną frontendu: aplikacja woła względne `/api`, a router Traefika
+`watchdeck-vue-api` (`Host(DOMAIN) && PathPrefix(/api)`) przekazuje to do serwisu backendu `watchdeck@docker`.
+Dzięki temu cookie sesji jest first-party i nie trzeba CORS. Backend bez zmian, jego domena API działa dalej.
 `VITE_API_URL=/api` i `VITE_APP_ENV=production` są wbudowywane w obraz w czasie buildu (`Dockerfile`).
 
 ### Jednorazowy setup
@@ -65,7 +66,7 @@ spadają na istniejący router backendu `Host(DOMAIN)`. Dłuższa reguła = wyż
 ```bash
 sudo mkdir -p /opt/watchdeck-vue && sudo chown deploy: /opt/watchdeck-vue
 # jako deploy:
-nano /opt/watchdeck-vue/.env   # treść wg deploy/.env.example, DOMAIN = ten sam co w /opt/watchdeck/.env
+nano /opt/watchdeck-vue/.env   # treść wg deploy/.env.example, DOMAIN = domena frontendu
 ```
 
 **Sekrety repo** (Settings → Secrets and variables → Actions, environment `production`) — te same co w backendzie:
