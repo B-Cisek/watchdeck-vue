@@ -46,3 +46,46 @@ bun run build
 ```sh
 bun lint
 ```
+
+## Deploy (Docker + GHCR + Traefik)
+
+Każdy push na `main` uruchamia `.github/workflows/deploy.yml`: CI (`ci.yml`: oxlint, ESLint, type-check, testy),
+potem buduje obraz z `Dockerfile` (build Vite → statyczne pliki serwowane przez nginx na porcie 8080), wypycha go do
+`ghcr.io/<owner>/watchdeck-vue:sha-<commit>` (oraz `:latest`), wgrywa `deploy/docker-compose.yml` na VPS
+i robi `docker compose pull && up -d --wait`. Ręcznie można go odpalić z zakładki Actions (`workflow_dispatch`).
+
+Frontend stoi na **tej samej domenie co backend** (`../watchdeck`), żeby cookie sesji działało bez CORS.
+Router Traefika frontendu łapie `Host(DOMAIN) && !PathPrefix(/api) && !Path(/health)`; `/api` i `/health`
+spadają na istniejący router backendu `Host(DOMAIN)`. Dłuższa reguła = wyższy priorytet, więc backend bez zmian.
+`VITE_API_URL=/api` i `VITE_APP_ENV=production` są wbudowywane w obraz w czasie buildu (`Dockerfile`).
+
+### Jednorazowy setup
+
+**VPS** (użytkownik `deploy` i login do GHCR już istnieją, jeśli backend jest wdrożony)
+```bash
+sudo mkdir -p /opt/watchdeck-vue && sudo chown deploy: /opt/watchdeck-vue
+# jako deploy:
+nano /opt/watchdeck-vue/.env   # treść wg deploy/.env.example, DOMAIN = ten sam co w /opt/watchdeck/.env
+```
+
+**Sekrety repo** (Settings → Secrets and variables → Actions, environment `production`) — te same co w backendzie:
+| Sekret | Wartość |
+|---|---|
+| `SSH_HOST` | IP/host VPS |
+| `SSH_KEY` | prywatny klucz deploy |
+| `SSH_KNOWN_HOSTS` | wynik `ssh-keyscan -p <port> <SSH_HOST>` |
+| `SSH_USER` | opcjonalnie, domyślnie `deploy` |
+| `SSH_PORT` | opcjonalnie, domyślnie `22` |
+
+### Rollback
+```bash
+cd /opt/watchdeck-vue
+echo IMAGE_TAG=sha-<poprzedni> > .deploy.env
+docker compose --env-file .env --env-file .deploy.env up -d
+```
+
+### Lokalny test obrazu
+```bash
+docker build -t watchdeck-vue .
+docker run --rm -p 8080:8080 watchdeck-vue   # http://localhost:8080 (bez backendu /api zwróci index.html)
+```

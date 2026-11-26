@@ -1,0 +1,29 @@
+# Copied to the VPS (/opt/watchdeck-vue) by .github/workflows/deploy.yml on every deploy.
+# Values come from .env (Traefik settings, managed by hand on the VPS)
+# and .deploy.env (IMAGE_TAG, written by CI).
+#
+# Same domain as the backend (../watchdeck): this router takes everything except
+# /api and /health, which fall through to the backend's Host() router. The longer
+# rule gives this router the higher priority, so the backend needs no changes.
+services:
+  web:
+    image: ghcr.io/${GHCR_OWNER:?set GHCR_OWNER in .env}/watchdeck-vue:${IMAGE_TAG:-latest}
+    container_name: watchdeck-vue
+    restart: unless-stopped
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK:-proxy}
+      - traefik.http.routers.watchdeck-vue.rule=Host(`${DOMAIN:?set DOMAIN in .env}`) && !PathPrefix(`/api`) && !Path(`/health`)
+      - traefik.http.routers.watchdeck-vue.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+      - traefik.http.routers.watchdeck-vue.tls=true
+      - traefik.http.routers.watchdeck-vue.tls.certresolver=${TRAEFIK_CERTRESOLVER:-cf}
+      - traefik.http.middlewares.watchdeck-vue-compress.compress=true
+      - traefik.http.routers.watchdeck-vue.middlewares=watchdeck-vue-compress
+      - traefik.http.services.watchdeck-vue.loadbalancer.server.port=8080
+
+networks:
+  traefik:
+    name: ${TRAEFIK_NETWORK:-proxy}
+    external: true
