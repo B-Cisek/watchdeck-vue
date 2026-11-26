@@ -34,4 +34,8 @@ jobs:
         run: bun run type-check
 
       - name: Tests
+        # Locally bun reads these from .env, which is not in the repo.
+        env:
+          VITE_APP_ENV: development
+          VITE_API_URL: /api
         run: bun test --tsconfig-override tsconfig.app.json
