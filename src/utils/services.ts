@@ -46,3 +46,14 @@ function filterSections(sections: ServiceSection[], search: string): ServiceSect
     return services.length ? [{ ...section, services }] : []
   })
 }
+
+/** How many services each group has, by group id; groups without services are left out. */
+export function countByGroup(services: Service[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const { group } of services) {
+    if (group) {
+      counts.set(group.id, (counts.get(group.id) ?? 0) + 1)
+    }
+  }
+  return counts
+}

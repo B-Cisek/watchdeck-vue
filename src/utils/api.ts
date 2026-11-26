@@ -28,3 +28,14 @@ api.interceptors.response.use(undefined, (error: unknown) => {
   }
   return Promise.reject(error)
 })
+
+/** For a delete: what is already gone counts as deleted. */
+export async function ignoreNotFound(request: Promise<unknown>): Promise<void> {
+  try {
+    await request
+  } catch (error) {
+    if (!isAxiosError(error) || error.response?.status !== 404) {
+      throw error
+    }
+  }
+}

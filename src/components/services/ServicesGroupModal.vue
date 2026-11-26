@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { reactive, ref, useTemplateRef, watch } from 'vue'
+import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import { serviceGroups } from '@/api/serviceGroups'
 import type { ServiceGroup } from '@/types/service'
 import { fieldErrors } from '@/utils/violations'
 
-const emit = defineEmits<{ created: [group: ServiceGroup] }>()
+const props = defineProps<{
+  /** The group to rename; without it the form creates a new one. */
+  group?: ServiceGroup
+}>()
+
+const emit = defineEmits<{ created: [group: ServiceGroup]; updated: [group: ServiceGroup] }>()
 const open = defineModel<boolean>('open', { default: false })
 
 const schema = z.object({
@@ -20,9 +25,25 @@ const form = useTemplateRef('form')
 const state = reactive({ name: '' })
 const failed = ref(false)
 
+const copy = computed(() =>
+  props.group
+    ? {
+        title: 'Rename group',
+        description: 'Services in this group keep their place.',
+        submit: 'Save',
+        error: 'Could not rename the group. Please try again.',
+      }
+    : {
+        title: 'New group',
+        description: 'Groups keep related services together, such as a product or a team.',
+        submit: 'Create group',
+        error: 'Could not create the group. Please try again.',
+      },
+)
+
 watch(open, (isOpen) => {
   if (isOpen) {
-    state.name = ''
+    state.name = props.group?.name ?? ''
     failed.value = false
   }
 })
@@ -30,15 +51,26 @@ watch(open, (isOpen) => {
 async function onSubmit({ data }: FormSubmitEvent<Schema>) {
   failed.value = false
   try {
-    const group = await serviceGroups.create(data)
-    emit('created', group)
+    if (props.group) {
+      const group = await serviceGroups.update(props.group.id, data)
+      emit('updated', group)
+      toast.add({
+        title: 'Group renamed',
+        description: group.name,
+        icon: 'i-lucide-check',
+        color: 'success',
+      })
+    } else {
+      const group = await serviceGroups.create(data)
+      emit('created', group)
+      toast.add({
+        title: 'Group created',
+        description: group.name,
+        icon: 'i-lucide-check',
+        color: 'success',
+      })
+    }
     open.value = false
-    toast.add({
-      title: 'Group created',
-      description: group.name,
-      icon: 'i-lucide-check',
-      color: 'success',
-    })
   } catch (e) {
     const errors = fieldErrors(e, ['name'])
     form.value?.setErrors(errors)
@@ -48,11 +80,7 @@ async function onSubmit({ data }: FormSubmitEvent<Schema>) {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    title="New group"
-    description="Groups keep related services together, such as a product or a team."
-  >
+  <UModal v-model:open="open" :title="copy.title" :description="copy.description">
     <template #body>
       <!-- Validates on submit only, like login: a blur error shifts the layout mid-click. -->
       <UForm
@@ -69,7 +97,7 @@ async function onSubmit({ data }: FormSubmitEvent<Schema>) {
           color="error"
           variant="subtle"
           icon="i-lucide-circle-alert"
-          title="Could not create the group. Please try again."
+          :title="copy.error"
         />
 
         <UFormField label="Name" name="name" required>
@@ -78,7 +106,7 @@ async function onSubmit({ data }: FormSubmitEvent<Schema>) {
 
         <div class="flex justify-end gap-2">
           <UButton label="Cancel" color="neutral" variant="subtle" @click="open = false" />
-          <UButton label="Create group" type="submit" loading-auto />
+          <UButton :label="copy.submit" type="submit" loading-auto />
         </div>
       </UForm>
     </template>

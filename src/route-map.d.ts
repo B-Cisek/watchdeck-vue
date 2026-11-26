@@ -59,6 +59,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/services.groups': RouteRecordInfo<
+      '/services.groups',
+      '/services/groups',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/settings': RouteRecordInfo<
       '/settings',
       '/settings',
@@ -125,6 +132,14 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | 'id'
+    }
+    'src/pages/services.groups.vue': {
+      routes:
+        | '/services.groups'
+      views:
+        | never
+      pathParamNames:
+        | never
     }
     'src/pages/settings.vue': {
       routes:

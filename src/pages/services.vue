@@ -102,6 +102,8 @@ useCheckRefresh(checks, () => status.value === 'ready')
           />
         </template>
       </UDashboardNavbar>
+
+      <ServicesTabs />
     </template>
 
     <template #body>
@@ -200,7 +202,7 @@ useCheckRefresh(checks, () => status.value === 'ready')
         :service="checkModalService"
         @created="onCheckCreated"
       />
-      <ServicesAddGroupModal v-model:open="groupModalOpen" @created="onGroupCreated" />
+      <ServicesGroupModal v-model:open="groupModalOpen" @created="onGroupCreated" />
     </template>
   </UDashboardPanel>
 </template>

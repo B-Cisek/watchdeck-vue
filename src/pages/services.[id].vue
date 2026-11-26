@@ -1,20 +1,28 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useMonitoring } from '@/composables/useMonitoring'
 import { sampleLogs } from '@/mocks/logs'
 import type { Check } from '@/types/check'
+import type { Service } from '@/types/service'
 import { checksByService, serviceStatus } from '@/utils/checks'
 
 const route = useRoute('/services.[id]')
+const router = useRouter()
 
 const { services, checks, status, load } = useMonitoring()
 const checkModalOpen = ref(false)
+const renameModalOpen = ref(false)
+const deleteModalOpen = ref(false)
 const logLines = sampleLogs()
 
 const service = computed(() => services.value.find(({ id }) => id === route.params.id))
 const serviceChecks = computed(() => checksByService(checks.value).get(route.params.id) ?? [])
 const overallStatus = computed(() => serviceStatus(serviceChecks.value))
+
+function onServiceRenamed(renamed: Service) {
+  services.value = services.value.map((service) => (service.id === renamed.id ? renamed : service))
+}
 
 function onCheckCreated(check: Check) {
   checks.value = [...checks.value, check]
@@ -50,6 +58,24 @@ function onCheckCreated(check: Check) {
         </template>
 
         <template #right>
+          <UTooltip v-if="service" :text="`Rename ${service.name}`">
+            <UButton
+              icon="i-lucide-pencil"
+              color="neutral"
+              variant="ghost"
+              :aria-label="`Rename ${service.name}`"
+              @click="renameModalOpen = true"
+            />
+          </UTooltip>
+          <UTooltip v-if="service" :text="`Delete ${service.name}`">
+            <UButton
+              icon="i-lucide-trash-2"
+              color="neutral"
+              variant="ghost"
+              :aria-label="`Delete ${service.name}`"
+              @click="deleteModalOpen = true"
+            />
+          </UTooltip>
           <UButton
             v-if="service"
             label="Add check"
@@ -132,6 +158,17 @@ function onCheckCreated(check: Check) {
         v-model:open="checkModalOpen"
         :service="service"
         @created="onCheckCreated"
+      />
+      <ServicesRenameModal
+        v-model:open="renameModalOpen"
+        :service="service"
+        @renamed="onServiceRenamed"
+      />
+      <ServicesDeleteModal
+        v-model:open="deleteModalOpen"
+        :service="service"
+        :check-count="serviceChecks.length"
+        @deleted="router.push('/services')"
       />
     </template>
   </UDashboardPanel>

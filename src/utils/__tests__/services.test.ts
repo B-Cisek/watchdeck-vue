@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Service, ServiceSection } from '@/types/service'
-import { groupServices } from '@/utils/services'
+import { countByGroup, groupServices } from '@/utils/services'
 
 const ecommerce = { id: 'g1', name: 'ecommerce' }
 const internal = { id: 'g2', name: 'Internal' }
@@ -62,5 +62,14 @@ describe('groupServices', () => {
 
     expect(services).toEqual([nike, adidas])
     expect(groups).toEqual([internal, ecommerce])
+  })
+})
+
+describe('countByGroup', () => {
+  test('counts services by the id of their group, skipping ungrouped ones', () => {
+    const counts = countByGroup([nike, blog, adidas])
+
+    expect([...counts]).toEqual([['g1', 2]])
+    expect(counts.get('g2')).toBeUndefined()
   })
 })
