@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import type { DropdownMenuItem } from '@nuxt/ui'
 import { useMonitoring } from '@/composables/useMonitoring'
 import { useServiceLogs } from '@/composables/useServiceLogs'
 import type { Check } from '@/types/check'
@@ -12,6 +13,11 @@ const router = useRouter()
 
 const { services, checks, status, load } = useMonitoring()
 const checkModalOpen = ref(false)
+const editedCheck = ref<Check>()
+/** Only the logs of this container are shown; `null` for all of them. */
+const logSourceId = ref<string | null>(null)
+const deleteCheckModalOpen = ref(false)
+const deletedCheck = ref<Check>()
 const renameModalOpen = ref(false)
 const deleteModalOpen = ref(false)
 const logsModalOpen = ref(false)
@@ -27,19 +33,62 @@ const service = computed(() => services.value.find(({ id }) => id === route.para
 const serviceChecks = computed(() => checksByService(checks.value).get(route.params.id) ?? [])
 const overallStatus = computed(() => serviceStatus(serviceChecks.value))
 
+const serviceMenuItems: DropdownMenuItem[][] = [
+  [
+    {
+      label: 'Rename',
+      icon: 'i-lucide-pencil',
+      onSelect: () => {
+        renameModalOpen.value = true
+      },
+    },
+  ],
+  [
+    {
+      label: 'Delete',
+      icon: 'i-lucide-trash-2',
+      color: 'error',
+      onSelect: () => {
+        deleteModalOpen.value = true
+      },
+    },
+  ],
+]
+
 function onServiceRenamed(renamed: Service) {
   services.value = services.value.map((service) => (service.id === renamed.id ? renamed : service))
 }
 
-function onCheckCreated(check: Check) {
-  checks.value = [...checks.value, check]
+function addCheck() {
+  editedCheck.value = undefined
+  checkModalOpen.value = true
+}
+
+function editCheck(check: Check) {
+  editedCheck.value = check
+  checkModalOpen.value = true
+}
+
+function deleteCheck(check: Check) {
+  deletedCheck.value = check
+  deleteCheckModalOpen.value = true
+}
+
+function onCheckDeleted(deleted: Check) {
+  checks.value = checks.value.filter(({ id }) => id !== deleted.id)
+}
+
+function onCheckSaved(saved: Check) {
+  checks.value = checks.value.some(({ id }) => id === saved.id)
+    ? checks.value.map((check) => (check.id === saved.id ? saved : check))
+    : [...checks.value, saved]
 }
 </script>
 
 <template>
   <UDashboardPanel id="service">
     <template #header>
-      <UDashboardNavbar :title="service?.name ?? 'Service'">
+      <UDashboardNavbar :title="service?.name ?? 'Service'" :ui="{ title: 'text-lg' }">
         <template #leading>
           <UDashboardSidebarCollapse />
           <UButton
@@ -52,56 +101,49 @@ function onCheckCreated(check: Check) {
         </template>
 
         <template #trailing>
-          <ServicesStatusBadge v-if="overallStatus" :status="overallStatus" />
+          <ServicesStatusBadge v-if="overallStatus" :status="overallStatus" size="md" />
           <UBadge
             v-if="service?.group"
             :label="service.group.name"
             icon="i-lucide-folder"
             color="neutral"
             variant="subtle"
-            size="sm"
+            size="md"
             class="hidden sm:inline-flex"
           />
         </template>
 
         <template #right>
-          <UTooltip v-if="service" :text="`Rename ${service.name}`">
-            <UButton
-              icon="i-lucide-pencil"
-              color="neutral"
-              variant="ghost"
-              :aria-label="`Rename ${service.name}`"
-              @click="renameModalOpen = true"
-            />
-          </UTooltip>
-          <UTooltip v-if="service" :text="`Delete ${service.name}`">
-            <UButton
-              icon="i-lucide-trash-2"
-              color="neutral"
-              variant="ghost"
-              :aria-label="`Delete ${service.name}`"
-              @click="deleteModalOpen = true"
-            />
-          </UTooltip>
           <UButton
             v-if="service"
             label="Add check"
             icon="i-lucide-plus"
-            @click="checkModalOpen = true"
+            size="lg"
+            @click="addCheck"
           />
+          <UDropdownMenu v-if="service" :items="serviceMenuItems" :content="{ align: 'end' }">
+            <UButton
+              icon="i-lucide-ellipsis-vertical"
+              color="neutral"
+              variant="ghost"
+              size="lg"
+              :aria-label="`Actions for ${service.name}`"
+            />
+          </UDropdownMenu>
         </template>
       </UDashboardNavbar>
     </template>
 
     <template #body>
       <div v-if="status === 'loading'" class="space-y-4" role="status" aria-label="Loading service">
-        <USkeleton class="h-6 w-32" />
+        <USkeleton class="h-7 w-36" />
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <USkeleton v-for="i in 3" :key="i" class="h-40" />
+          <USkeleton v-for="i in 3" :key="i" class="h-48" />
         </div>
       </div>
 
       <UEmpty
+        size="lg"
         v-else-if="status === 'error'"
         role="alert"
         variant="naked"
@@ -114,6 +156,7 @@ function onCheckCreated(check: Check) {
       />
 
       <UEmpty
+        size="lg"
         v-else-if="!service"
         variant="naked"
         icon="i-lucide-search-x"
@@ -127,15 +170,22 @@ function onCheckCreated(check: Check) {
       <template v-else>
         <section aria-labelledby="service-checks" class="space-y-3">
           <div class="flex items-center gap-2">
-            <h2 id="service-checks" class="font-semibold text-highlighted">Checks</h2>
-            <UBadge :label="serviceChecks.length" color="neutral" variant="subtle" size="sm" />
+            <h2 id="service-checks" class="text-lg font-semibold text-highlighted">Checks</h2>
+            <UBadge :label="serviceChecks.length" color="neutral" variant="subtle" size="md" />
           </div>
 
           <div v-if="serviceChecks.length" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <ServicesCheckCard v-for="check in serviceChecks" :key="check.id" :check="check" />
+            <ServicesCheckCard
+              v-for="check in serviceChecks"
+              :key="check.id"
+              :check="check"
+              @edit="editCheck(check)"
+              @delete="deleteCheck(check)"
+            />
           </div>
 
           <UEmpty
+            size="lg"
             v-else
             icon="i-lucide-activity"
             title="No checks yet"
@@ -144,9 +194,7 @@ function onCheckCreated(check: Check) {
               {
                 label: 'Add check',
                 icon: 'i-lucide-plus',
-                onClick: () => {
-                  checkModalOpen = true
-                },
+                onClick: addCheck,
               },
             ]"
           />
@@ -154,13 +202,13 @@ function onCheckCreated(check: Check) {
 
         <section aria-labelledby="service-logs" class="space-y-3">
           <div class="flex items-center gap-2">
-            <h2 id="service-logs" class="font-semibold text-highlighted">Logs</h2>
+            <h2 id="service-logs" class="text-lg font-semibold text-highlighted">Logs</h2>
             <UBadge
               v-if="logStatus === 'ready'"
               :label="logSources.length"
               color="neutral"
               variant="subtle"
-              size="sm"
+              size="md"
             />
             <UButton
               v-if="logStatus === 'ready' && logSources.length"
@@ -168,7 +216,7 @@ function onCheckCreated(check: Check) {
               icon="i-lucide-plus"
               color="neutral"
               variant="subtle"
-              size="sm"
+              size="md"
               class="ms-auto"
               @click="logsModalOpen = true"
             />
@@ -200,6 +248,7 @@ function onCheckCreated(check: Check) {
           />
 
           <UEmpty
+            size="lg"
             v-else-if="!logSources.length"
             icon="i-lucide-scroll-text"
             title="No logs yet"
@@ -217,17 +266,29 @@ function onCheckCreated(check: Check) {
 
           <template v-else>
             <ul class="flex flex-wrap gap-2" aria-label="Containers">
-              <ServicesLogSource v-for="source in logSources" :key="source.id" :source="source" />
+              <ServicesLogSource
+                v-for="source in logSources"
+                :key="source.id"
+                :source="source"
+                :selected="logSourceId === source.id"
+                @toggle="logSourceId = logSourceId === source.id ? null : source.id"
+              />
             </ul>
-            <ServicesLogs :lines="logLines" />
+            <ServicesLogs :lines="logLines" :source-id="logSourceId" />
           </template>
         </section>
       </template>
 
-      <ServicesAddCheckModal
+      <ServicesCheckModal
         v-model:open="checkModalOpen"
         :service="service"
-        @created="onCheckCreated"
+        :check="editedCheck"
+        @saved="onCheckSaved"
+      />
+      <ServicesDeleteCheckModal
+        v-model:open="deleteCheckModalOpen"
+        :check="deletedCheck"
+        @deleted="onCheckDeleted"
       />
       <ServicesAddLogsModal
         v-model:open="logsModalOpen"

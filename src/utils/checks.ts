@@ -9,6 +9,7 @@ const common = {
     .int('Use a whole number')
     .min(1, 'Use 1 to 60 seconds')
     .max(60, 'Use 1 to 60 seconds'),
+  enabled: z.boolean(),
 }
 
 /** Form values of both check types in, the request body of the chosen type out. */
@@ -58,10 +59,11 @@ export function checkTarget(check: CheckTarget): string {
   return check.type === 'http' ? check.config.url : `${check.config.host}:${check.config.port}`
 }
 
-/** The worst status among the checks; `null` without any checks. */
+/** The worst status among the running checks; `null` without any. */
 export function serviceStatus(checks: Check[]): CheckStatus | null {
   const order: CheckStatus[] = ['down', 'pending', 'up']
-  return order.find((status) => checks.some((check) => check.status === status)) ?? null
+  const running = checks.filter(({ enabled }) => enabled)
+  return order.find((status) => running.some((check) => check.status === status)) ?? null
 }
 
 /** In the largest unit that gives a whole number. */

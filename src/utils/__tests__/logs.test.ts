@@ -4,6 +4,7 @@ import { filterLogs, logSourceSchema } from '@/utils/logs'
 
 const started: LogLine = {
   id: 1,
+  sourceId: 'app',
   container: 'shop-app',
   loggedAt: '2026-11-25T10:00:00Z',
   stream: 'stdout',
@@ -11,6 +12,7 @@ const started: LogLine = {
 }
 const failed: LogLine = {
   id: 2,
+  sourceId: 'db',
   container: 'shop-db',
   loggedAt: '2026-11-25T10:00:01Z',
   stream: 'stderr',
@@ -20,23 +22,36 @@ const lines = [started, failed]
 
 describe('filterLogs', () => {
   test('keeps every line without filters', () => {
-    expect(filterLogs(lines, { query: '  ', stream: 'all' })).toEqual(lines)
+    expect(filterLogs(lines, { query: '  ', stream: 'all', sourceId: null })).toEqual(lines)
   })
 
   test('keeps lines of one stream', () => {
-    expect(filterLogs(lines, { query: '', stream: 'stderr' })).toEqual([failed])
+    expect(filterLogs(lines, { query: '', stream: 'stderr', sourceId: null })).toEqual([failed])
   })
 
   test('finds lines by message', () => {
-    expect(filterLogs(lines, { query: ' REFUSED ', stream: 'all' })).toEqual([failed])
+    expect(filterLogs(lines, { query: ' REFUSED ', stream: 'all', sourceId: null })).toEqual([
+      failed,
+    ])
   })
 
   test('finds lines by container', () => {
-    expect(filterLogs(lines, { query: 'shop-app', stream: 'all' })).toEqual([started])
+    expect(filterLogs(lines, { query: 'shop-app', stream: 'all', sourceId: null })).toEqual([
+      started,
+    ])
+  })
+
+  test('keeps lines of one log source', () => {
+    // The same container name on another host is a different source.
+    const elsewhere: LogLine = { ...started, id: 3, sourceId: 'app-on-vps' }
+
+    expect(
+      filterLogs([...lines, elsewhere], { query: '', stream: 'all', sourceId: 'app' }),
+    ).toEqual([started])
   })
 
   test('applies both filters', () => {
-    expect(filterLogs(lines, { query: 'started', stream: 'stderr' })).toEqual([])
+    expect(filterLogs(lines, { query: 'started', stream: 'stderr', sourceId: null })).toEqual([])
   })
 })
 

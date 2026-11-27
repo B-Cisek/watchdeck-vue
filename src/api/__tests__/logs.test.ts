@@ -62,6 +62,7 @@ test('adds a log source and returns its Vector config', async () => {
 test('reads the newest lines of a service', async () => {
   const line: LogLine = {
     id: 1,
+    sourceId: 'ls1',
     container: 'shop-app-1',
     loggedAt: '2026-11-26T10:00:00+00:00',
     stream: 'stdout',

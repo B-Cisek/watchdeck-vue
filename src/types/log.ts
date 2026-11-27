@@ -2,6 +2,8 @@ export type LogStream = 'stdout' | 'stderr'
 
 export interface LogLine {
   id: number
+  /** The log source it came from: containers of the same name can run on several hosts. */
+  sourceId: string
   container: string
   loggedAt: string
   stream: LogStream

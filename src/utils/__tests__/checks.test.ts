@@ -10,6 +10,7 @@ import {
 
 const common = {
   serviceId: 's1',
+  enabled: true,
   intervalSeconds: 60,
   timeoutSeconds: 5,
   status: 'up',
@@ -69,6 +70,13 @@ describe('serviceStatus', () => {
   ])('is %p for %p', (expected, statuses) => {
     expect(serviceStatus(statuses.map((status) => ({ ...home, status })))).toBe(expected)
   })
+
+  test('leaves out paused checks', () => {
+    const paused = { ...home, status: 'down', enabled: false } as const
+
+    expect(serviceStatus([paused, home])).toBe('up')
+    expect(serviceStatus([paused])).toBeNull()
+  })
 })
 
 describe('formatSeconds', () => {
@@ -98,6 +106,7 @@ describe('checkSchema', () => {
     },
     intervalSeconds: 60,
     timeoutSeconds: 5,
+    enabled: true,
   }
 
   function paths(value: unknown) {
@@ -111,6 +120,7 @@ describe('checkSchema', () => {
       config: { url: 'https://shop.com', method: 'GET', expectedStatus: 200 },
       intervalSeconds: 60,
       timeoutSeconds: 5,
+      enabled: true,
     })
   })
 
@@ -123,6 +133,7 @@ describe('checkSchema', () => {
       config: { host: 'shop-db', port: 5432 },
       intervalSeconds: 60,
       timeoutSeconds: 5,
+      enabled: true,
     })
   })
 

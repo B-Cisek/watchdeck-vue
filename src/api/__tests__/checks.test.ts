@@ -29,6 +29,7 @@ const create: CreateCheck = {
   config: { host: 'shop-db', port: 5432 },
   intervalSeconds: 60,
   timeoutSeconds: 5,
+  enabled: true,
 }
 const check: Check = {
   ...create,
@@ -50,4 +51,18 @@ test('creates a check of a service', async () => {
 
   expect(await checks.create('s1', create)).toEqual(check)
   expect(requests).toEqual([{ method: 'post', url: '/services/s1/checks', body: create }])
+})
+
+test('replaces a check', async () => {
+  const requests = respondWith(check)
+
+  expect(await checks.update('c1', create)).toEqual(check)
+  expect(requests).toEqual([{ method: 'put', url: '/checks/c1', body: create }])
+})
+
+test('removes a check', async () => {
+  const requests = respondWith(undefined)
+
+  await checks.remove('c1')
+  expect(requests).toEqual([{ method: 'delete', url: '/checks/c1', body: undefined }])
 })

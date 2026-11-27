@@ -17,6 +17,7 @@ function check(serviceId: string, status: CheckStatus, changes: Partial<Check> =
   return {
     id: `${serviceId}-${status}`,
     serviceId,
+    enabled: true,
     name: status,
     type: 'tcp',
     config: { host: 'db', port: 5432 },
@@ -114,6 +115,14 @@ describe('overview', () => {
       { service: shop, check: down, reason: 'down' },
       { service: shop, check: outdated, reason: 'stale' },
     ])
+  })
+
+  test('leaves out paused checks', () => {
+    const paused = check('s', 'down', { enabled: false })
+
+    const result = overview([service('s')], [paused], now)
+    expect(result.services[0]).toMatchObject({ state: 'unmonitored', up: 0, total: 0 })
+    expect(result.problems).toEqual([])
   })
 
   // Both lists are fetched separately, so a service can be created in between.

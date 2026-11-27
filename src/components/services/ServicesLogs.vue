@@ -4,7 +4,11 @@ import { format } from 'date-fns'
 import type { LogLine } from '@/types/log'
 import { filterLogs, type LogFilter } from '@/utils/logs'
 
-const props = defineProps<{ lines: LogLine[] }>()
+const props = defineProps<{
+  lines: LogLine[]
+  /** Only the lines of this log source; `null` for all of them. */
+  sourceId?: string | null
+}>()
 
 const streamItems = [
   { label: 'All streams', value: 'all' },
@@ -12,8 +16,10 @@ const streamItems = [
   { label: 'stderr', value: 'stderr' },
 ]
 
-const filter = reactive<LogFilter>({ query: '', stream: 'all' })
-const visibleLines = computed(() => filterLogs(props.lines, filter))
+const filter = reactive<Omit<LogFilter, 'sourceId'>>({ query: '', stream: 'all' })
+const visibleLines = computed(() =>
+  filterLogs(props.lines, { ...filter, sourceId: props.sourceId ?? null }),
+)
 
 // The newest lines are at the bottom, like in a terminal. New lines keep the view at the
 // bottom, unless the reader scrolled up to read older ones.
@@ -46,13 +52,15 @@ watch(
         icon="i-lucide-search"
         placeholder="Search logs…"
         aria-label="Search logs"
-        class="w-full sm:max-w-72"
+        size="lg"
+        class="w-full sm:max-w-80"
       />
       <USelect
         v-model="filter.stream"
         :items="streamItems"
         aria-label="Stream"
-        class="w-full sm:w-36"
+        size="lg"
+        class="w-full sm:w-40"
       />
     </div>
 
@@ -62,7 +70,7 @@ watch(
       aria-label="Log lines"
       tabindex="0"
       @scroll="onScroll"
-      class="h-96 overflow-y-auto rounded-lg bg-elevated/50 p-3 font-mono text-xs ring ring-default focus-visible:outline-2 focus-visible:outline-primary"
+      class="h-96 overflow-y-auto rounded-lg bg-elevated/50 p-3 font-mono text-sm ring ring-default focus-visible:outline-2 focus-visible:outline-primary"
     >
       <p v-if="!visibleLines.length" class="text-muted">
         {{
@@ -79,10 +87,10 @@ watch(
         <time :datetime="line.loggedAt" class="shrink-0 text-muted">
           {{ format(line.loggedAt, 'MMM d HH:mm:ss') }}
         </time>
-        <span class="w-28 shrink-0 truncate text-muted" :title="line.container">
+        <span class="w-32 shrink-0 truncate text-muted" :title="line.container">
           {{ line.container }}
         </span>
-        <span class="w-12 shrink-0" :class="line.stream === 'stderr' ? 'text-error' : 'text-muted'">
+        <span class="w-14 shrink-0" :class="line.stream === 'stderr' ? 'text-error' : 'text-muted'">
           {{ line.stream }}
         </span>
         <span class="min-w-0 wrap-anywhere text-default">{{ line.message }}</span>

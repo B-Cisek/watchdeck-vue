@@ -66,7 +66,7 @@ load()
 <template>
   <UDashboardPanel id="service-groups">
     <template #header>
-      <UDashboardNavbar title="Services">
+      <UDashboardNavbar title="Services" :ui="{ title: 'text-lg' }">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -75,6 +75,7 @@ load()
           <UButton
             label="New group"
             icon="i-lucide-folder-plus"
+            size="lg"
             :disabled="status !== 'ready'"
             @click="newGroup"
           />
@@ -86,13 +87,14 @@ load()
 
     <template #body>
       <div v-if="status === 'loading'" class="space-y-2" role="status" aria-label="Loading groups">
-        <USkeleton v-for="i in 3" :key="i" class="h-12 w-full" />
+        <USkeleton v-for="i in 3" :key="i" class="h-14 w-full" />
       </div>
 
       <UEmpty
         v-else-if="status === 'error'"
         role="alert"
         variant="naked"
+        size="lg"
         icon="i-lucide-circle-alert"
         title="Could not load groups"
         description="Check your connection and try again."
@@ -104,6 +106,7 @@ load()
       <UEmpty
         v-else-if="!groups.length"
         variant="naked"
+        size="lg"
         icon="i-lucide-folder"
         title="No groups yet"
         description="Groups keep related services together, such as a product or a team."
@@ -115,13 +118,13 @@ load()
           <li
             v-for="group in sortedGroups"
             :key="group.id"
-            class="flex min-h-12 items-center gap-3 px-4 py-2"
+            class="flex min-h-14 items-center gap-3 px-4 py-2"
           >
-            <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-muted" />
-            <span class="min-w-0 truncate text-sm font-medium text-highlighted">
+            <UIcon name="i-lucide-folder" class="size-5 shrink-0 text-muted" />
+            <span class="min-w-0 truncate text-base font-medium text-highlighted">
               {{ group.name }}
             </span>
-            <span class="shrink-0 text-sm text-muted">
+            <span class="shrink-0 text-base text-muted">
               {{ count(serviceCounts.get(group.id) ?? 0, 'service') }}
             </span>
 
@@ -131,7 +134,7 @@ load()
                   icon="i-lucide-pencil"
                   color="neutral"
                   variant="ghost"
-                  size="sm"
+                  size="md"
                   :aria-label="`Rename ${group.name}`"
                   @click="renameGroup(group)"
                 />
@@ -141,7 +144,7 @@ load()
                   icon="i-lucide-trash-2"
                   color="neutral"
                   variant="ghost"
-                  size="sm"
+                  size="md"
                   :aria-label="`Delete ${group.name}`"
                   @click="deleteGroup(group)"
                 />

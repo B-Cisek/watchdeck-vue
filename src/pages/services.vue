@@ -19,8 +19,6 @@ const search = ref('')
 const groupModalOpen = ref(false)
 const serviceModalOpen = ref(false)
 const serviceModalGroupId = ref<string>()
-const checkModalOpen = ref(false)
-const checkModalService = ref<Service>()
 
 const sections = computed(() => groupServices(services.value, groups.value, search.value))
 const serviceChecks = computed(() => checksByService(checks.value))
@@ -57,15 +55,6 @@ function onServiceCreated(service: Service) {
   search.value = ''
 }
 
-function addCheck(service: Service) {
-  checkModalService.value = service
-  checkModalOpen.value = true
-}
-
-function onCheckCreated(check: Check) {
-  checks.value = [...checks.value, check]
-}
-
 function onGroupCreated(group: ServiceGroup) {
   groups.value.push(group)
   search.value = ''
@@ -78,7 +67,7 @@ useCheckRefresh(checks, () => status.value === 'ready')
 <template>
   <UDashboardPanel id="services">
     <template #header>
-      <UDashboardNavbar title="Services">
+      <UDashboardNavbar title="Services" :ui="{ title: 'text-lg' }">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -90,6 +79,7 @@ useCheckRefresh(checks, () => status.value === 'ready')
             color="neutral"
             variant="outline"
             aria-label="New group"
+            size="lg"
             :disabled="status !== 'ready'"
             :ui="{ label: 'hidden sm:inline' }"
             @click="groupModalOpen = true"
@@ -97,6 +87,7 @@ useCheckRefresh(checks, () => status.value === 'ready')
           <UButton
             label="New service"
             icon="i-lucide-plus"
+            size="lg"
             :disabled="status !== 'ready'"
             @click="addService()"
           />
@@ -113,14 +104,15 @@ useCheckRefresh(checks, () => status.value === 'ready')
         role="status"
         aria-label="Loading services"
       >
-        <USkeleton class="h-8 w-full sm:w-72" />
-        <USkeleton v-for="i in 3" :key="i" class="h-32 w-full" />
+        <USkeleton class="h-10 w-full sm:w-80" />
+        <USkeleton v-for="i in 3" :key="i" class="h-36 w-full" />
       </div>
 
       <UEmpty
         v-else-if="status === 'error'"
         role="alert"
         variant="naked"
+        size="lg"
         icon="i-lucide-circle-alert"
         title="Could not load services"
         description="Check your connection and try again."
@@ -132,6 +124,7 @@ useCheckRefresh(checks, () => status.value === 'ready')
       <UEmpty
         v-else-if="isEmpty"
         variant="naked"
+        size="lg"
         icon="i-lucide-server"
         title="No services yet"
         description="Add the first service you want to monitor, or start with a group to put services in."
@@ -156,9 +149,10 @@ useCheckRefresh(checks, () => status.value === 'ready')
             icon="i-lucide-search"
             placeholder="Search services or groups…"
             aria-label="Search services or groups"
-            class="w-full sm:max-w-72"
+            size="lg"
+            class="w-full sm:max-w-80"
           />
-          <p class="text-sm text-muted">{{ summary }}</p>
+          <p class="text-base text-muted">{{ summary }}</p>
         </div>
 
         <ServicesGroupCard
@@ -168,12 +162,12 @@ useCheckRefresh(checks, () => status.value === 'ready')
           :checks="serviceChecks"
           class="shrink-0"
           @add="addService(section.group?.id)"
-          @add-check="addCheck"
         />
 
         <UEmpty
           v-if="!sections.length"
           variant="naked"
+          size="lg"
           icon="i-lucide-search-x"
           title="Nothing found"
           :description="`No service or group matches “${search.trim()}”.`"
@@ -196,11 +190,6 @@ useCheckRefresh(checks, () => status.value === 'ready')
         :group-id="serviceModalGroupId"
         @created="onServiceCreated"
         @group-created="onGroupCreated"
-      />
-      <ServicesAddCheckModal
-        v-model:open="checkModalOpen"
-        :service="checkModalService"
-        @created="onCheckCreated"
       />
       <ServicesGroupModal v-model:open="groupModalOpen" @created="onGroupCreated" />
     </template>

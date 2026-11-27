@@ -4,13 +4,16 @@ import type { LogLine, LogStream } from '@/types/log'
 export interface LogFilter {
   query: string
   stream: LogStream | 'all'
+  /** Only the lines of this log source; `null` for all of them. */
+  sourceId: string | null
 }
 
-export function filterLogs(lines: LogLine[], { query, stream }: LogFilter): LogLine[] {
+export function filterLogs(lines: LogLine[], { query, stream, sourceId }: LogFilter): LogLine[] {
   const search = query.trim().toLowerCase()
 
   return lines.filter(
     (line) =>
+      (sourceId === null || line.sourceId === sourceId) &&
       (stream === 'all' || line.stream === stream) &&
       (line.message.toLowerCase().includes(search) ||
         line.container.toLowerCase().includes(search)),

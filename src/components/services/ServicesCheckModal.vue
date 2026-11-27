@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { reactive, ref, useTemplateRef, watch } from 'vue'
+import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import type * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import { checks } from '@/api/checks'
 import type { Check, CheckTarget, HttpCheckMethod } from '@/types/check'
 import type { Service } from '@/types/service'
-import { checkSchema } from '@/utils/checks'
+import { checkSchema, formatSeconds } from '@/utils/checks'
 import { fieldErrors } from '@/utils/violations'
 
-const props = defineProps<{ service?: Service }>()
-const emit = defineEmits<{ created: [check: Check] }>()
+/** Edits `check` when given, otherwise adds a new check to `service`. */
+const props = defineProps<{ service?: Service; check?: Check }>()
+const emit = defineEmits<{ saved: [check: Check] }>()
 const open = defineModel<boolean>('open', { default: false })
 
 type Schema = z.output<typeof checkSchema>
@@ -31,7 +32,7 @@ const typeItems = [
   { label: 'TCP', value: 'tcp', description: 'A port accepts connections.' },
 ]
 
-const intervalItems = [
+const INTERVALS = [
   { label: '30 seconds', value: 30 },
   { label: '1 minute', value: 60 },
   { label: '5 minutes', value: 300 },
@@ -41,19 +42,21 @@ const intervalItems = [
 
 const methodItems: HttpCheckMethod[] = ['GET', 'HEAD']
 
-function initialState() {
+function initialState(check?: Check) {
   return {
-    name: '',
-    type: 'http' as CheckTarget['type'],
+    name: check?.name ?? '',
+    type: check?.type ?? ('http' as CheckTarget['type']),
     config: {
       url: '',
       method: 'GET' as HttpCheckMethod,
       expectedStatus: 200,
       host: '',
       port: undefined as number | undefined,
+      ...check?.config,
     },
-    intervalSeconds: 60,
-    timeoutSeconds: 5,
+    intervalSeconds: check?.intervalSeconds ?? 60,
+    timeoutSeconds: check?.timeoutSeconds ?? 5,
+    enabled: check?.enabled ?? true,
   }
 }
 
@@ -62,9 +65,20 @@ const form = useTemplateRef('form')
 const state = reactive(initialState())
 const failed = ref(false)
 
+const editing = computed(() => !!props.check)
+// An interval set through the API may not be one of the presets.
+const intervalItems = computed(() => {
+  const current = props.check?.intervalSeconds
+  return current === undefined || INTERVALS.some(({ value }) => value === current)
+    ? INTERVALS
+    : [...INTERVALS, { label: formatSeconds(current), value: current }].sort(
+        (a, b) => a.value - b.value,
+      )
+})
+
 watch(open, (isOpen) => {
   if (isOpen) {
-    Object.assign(state, initialState())
+    Object.assign(state, initialState(props.check))
     failed.value = false
   }
 })
@@ -75,19 +89,22 @@ watch(
 )
 
 async function onSubmit({ data }: FormSubmitEvent<Schema>) {
-  const { service } = props
-  if (!service) {
+  const { service, check: current } = props
+  const save = current
+    ? () => checks.update(current.id, data)
+    : service && (() => checks.create(service.id, data))
+  if (!save) {
     return
   }
 
   failed.value = false
   try {
-    const check = await checks.create(service.id, data)
-    emit('created', check)
+    const check = await save()
+    emit('saved', check)
     open.value = false
     toast.add({
-      title: 'Check added',
-      description: `${check.name} in ${service.name}`,
+      title: current ? 'Check saved' : 'Check added',
+      description: service ? `${check.name} in ${service.name}` : check.name,
       icon: 'i-lucide-check',
       color: 'success',
     })
@@ -102,8 +119,12 @@ async function onSubmit({ data }: FormSubmitEvent<Schema>) {
 <template>
   <UModal
     v-model:open="open"
-    title="New check"
-    :description="`Watch whether ${service?.name ?? 'the service'} is up.`"
+    :title="editing ? 'Edit check' : 'New check'"
+    :description="
+      editing
+        ? 'Changing the type or target starts the check over as pending.'
+        : `Watch whether ${service?.name ?? 'the service'} is up.`
+    "
   >
     <template #body>
       <!-- Validates on submit only, like login: a blur error shifts the layout mid-click. -->
@@ -121,7 +142,7 @@ async function onSubmit({ data }: FormSubmitEvent<Schema>) {
           color="error"
           variant="subtle"
           icon="i-lucide-circle-alert"
-          title="Could not add the check. Please try again."
+          :title="`Could not ${editing ? 'save' : 'add'} the check. Please try again.`"
         />
 
         <UFormField label="Name" name="name" required>
@@ -194,9 +215,20 @@ async function onSubmit({ data }: FormSubmitEvent<Schema>) {
           </UFormField>
         </div>
 
+        <UFormField
+          name="enabled"
+          :help="
+            state.enabled
+              ? 'Runs on schedule and counts towards the service status.'
+              : 'Kept with its history, but not run until you turn it back on.'
+          "
+        >
+          <USwitch v-model="state.enabled" label="Active" />
+        </UFormField>
+
         <div class="flex justify-end gap-2">
           <UButton label="Cancel" color="neutral" variant="subtle" @click="open = false" />
-          <UButton label="Add check" type="submit" loading-auto />
+          <UButton :label="editing ? 'Save' : 'Add check'" type="submit" loading-auto />
         </div>
       </UForm>
     </template>

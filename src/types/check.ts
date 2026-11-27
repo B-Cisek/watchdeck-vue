@@ -17,6 +17,8 @@ export type CreateCheck = CheckTarget & {
   name: string
   intervalSeconds: number
   timeoutSeconds: number
+  /** A paused check is not run and does not count towards the status of its service. */
+  enabled: boolean
 }
 
 export type Check = CreateCheck & {

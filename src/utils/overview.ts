@@ -45,8 +45,9 @@ export function overview(services: Service[], checks: Check[], now: number): Ove
   const problems: Problem[] = []
 
   const items = services.map((service): ServiceOverview => {
+    // A paused check is not watched, so it neither raises problems nor counts as up.
     const states = checks
-      .filter(({ serviceId }) => serviceId === service.id)
+      .filter(({ serviceId, enabled }) => serviceId === service.id && enabled)
       .map((check) => {
         const state = checkState(check, now)
         if (state === 'down' || state === 'stale') {
